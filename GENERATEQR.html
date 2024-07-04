@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code Generator</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background-color: #f0f0f0;
+      }
+      .container {
+        text-align: center;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        max-width: 600px; /* Increased max-width */
+        width: 90%;
+        position: relative;
+        overflow: hidden;
+      }
+      input[type="text"] {
+        width: calc(100% - 22px);
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      button {
+        padding: 10px 20px;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        border-radius: 4px;
+        margin: 5px;
+        transition: background-color 0.3s;
+        font-size: 14px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      #qrcode-container {
+        margin-top: 20px;
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 10px;
+        background-color: #fff;
+        max-width: 100%;
+        overflow: hidden; /* Ensure QR code doesn't overflow */
+      }
+      #qrcode {
+        max-width: 100%;
+        height: auto;
+      }
+      #loader {
+        display: none;
+        width: 100%;
+        height: 5px;
+        background-color: #f0f0f0;
+        position: relative;
+        overflow: hidden;
+        border-radius: 2px;
+        margin-top: -5px;
+      }
+      #loader .progress {
+        width: 0;
+        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        background-color: #34b7f1; /* Gmail blue */
+        animation: progress 7s linear forwards, rgbCycle 7s linear infinite;
+      }
+      @keyframes progress {
+        from {
+          width: 0;
+        }
+        to {
+          width: 100%;
+        }
+      }
+      @keyframes rgbCycle {
+        0% {
+          background-color: #dd4b39;
+        } /* Gmail red */
+        33% {
+          background-color: #f4c20d;
+        } /* Gmail yellow */
+        66% {
+          background-color: #4caf50;
+        } /* Gmail green */
+        100% {
+          background-color: #dd4b39;
+        } /* Gmail red */
+      }
+      #long-time-message {
+        display: none;
+        color: red;
+        margin-top: 10px;
+        animation: fadeIn 1s ease-in-out;
+      }
+      .success-message {
+        color: green;
+        margin-top: 10px;
+        animation: fadeIn 1s ease-in-out;
+      }
+      .customization-options {
+        margin-top: 20px;
+        text-align: left;
+      }
+      .customization-options label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        font-size: 14px;
+      }
+      .customization-options select {
+        width: 100%;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+      }
+      @media (max-width: 480px) {
+        .container {
+          width: 100%;
+          border-radius: 0;
+          box-shadow: none;
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>QR Code Generator</h1>
+      <input type="text" id="text" placeholder="Enter text or URL" />
+      <div class="customization-options">
+        <label for="size">Size:</label>
+        <select id="size">
+          <option value="128">128x128</option>
+          <option value="256" selected>256x256</option>
+          <option value="512">512x512</option>
+        </select>
+        <br /><br />
+        <label for="correction">Quality:</label>
+        <select id="correction">
+          <option value="L">Low</option>
+          <option value="M">Medium</option>
+          <option value="Q">Quartile</option>
+          <option value="H" selected>High</option>
+        </select>
+      </div>
+      <button onclick="generateQRCode()">Generate QR Code</button>
+      <button onclick="clearQRCode()">Clear</button>
+      <button onclick="downloadQRCode()">Download</button>
+      <div id="qrcode-container">
+        <div id="loader">
+          <div class="progress"></div>
+        </div>
+        <div id="qrcode"></div>
+      </div>
+      <div id="long-time-message">Generating QR code...</div>
+      <div id="success-message" class="success-message"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+      function generateQRCode() {
+        const maxTextLength = 1000; // Maximum length of input text
+        const text = document.getElementById("text").value.trim();
+        const size = parseInt(document.getElementById("size").value);
+        const correctionLevel = document.getElementById("correction").value;
+        const qrcodeContainer = document.getElementById("qrcode");
+        const loader = document.getElementById("loader");
+        const progress = loader.querySelector(".progress");
+        const longTimeMessage = document.getElementById("long-time-message");
+        const successMessage = document.getElementById("success-message");
+
+        qrcodeContainer.innerHTML = ""; // Clear any existing QR code
+        longTimeMessage.style.display = "none"; // Hide message initially
+        successMessage.innerHTML = ""; // Clear any previous success message
+
+        if (text !== "") {
+          if (text.length > maxTextLength) {
+            console.error(
+              `Input text exceeds maximum length of ${maxTextLength} characters.`
+            );
+            return;
+          }
+
+          loader.style.display = "block"; // Show loader
+          progress.style.width = "0"; // Reset progress bar
+
+          const longTimeTimeout = setTimeout(() => {
+            longTimeMessage.style.display = "block"; // Show message after 7 seconds
+          }, 7000);
+
+          try {
+            // Generate QR code
+            const qr = new QRCode(qrcodeContainer, {
+              text: text,
+              width: size,
+              height: size,
+              correctLevel: QRCode.CorrectLevel[correctionLevel],
+            });
+
+            // Update progress bar
+            let progressWidth = 0;
+            const interval = setInterval(() => {
+              progressWidth += 10;
+              progress.style.width = progressWidth + "%";
+              if (progressWidth >= 100) {
+                clearInterval(interval);
+              }
+            }, 500);
+
+            // Check if QR code was generated
+            if (!qr) {
+              throw new Error("Failed to generate QR code.");
+            }
+
+            // Show success message
+            successMessage.innerHTML = "QR code generated successfully.";
+            successMessage.style.display = "block";
+
+            // Adjust container size based on QR code size
+            const qrCodeImage = qrcodeContainer.querySelector("img");
+            if (qrCodeImage) {
+              const qrCodeSize = Math.max(
+                size,
+                qrCodeImage.offsetWidth,
+                qrCodeImage.offsetHeight
+              );
+              qrcodeContainer.style.width = qrCodeSize + "px";
+              qrcodeContainer.style.height = qrCodeSize + "px";
+            }
+          } catch (error) {
+            console.error("Error generating QR code:", error);
+            longTimeMessage.style.display = "block";
+          } finally {
+            loader.style.display = "none"; // Hide loader
+            clearTimeout(longTimeTimeout); // Clear timeout
+          }
+        } else {
+          console.error("Text input is empty.");
+        }
+      }
+
+      function clearQRCode() {
+        document.getElementById("text").value = "";
+        document.getElementById("qrcode").innerHTML = ""; // Clear any existing QR code
+        document.getElementById("success-message").style.display = "none"; // Hide success message
+        document.getElementById("long-time-message").style.display = "none"; // Hide long-time message
+      }
+
+      function downloadQRCode() {
+        const qrcodeImg = document.querySelector("#qrcode img");
+        if (qrcodeImg) {
+          const link = document.createElement("a");
+          link.href = qrcodeImg.src;
+          link.download = "qrcode.png";
+          link.click();
+        } else {
+          alert("No QR code generated to download.");
+        }
+      }
+    </script>
+  </body>
+</html>
